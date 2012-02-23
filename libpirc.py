@@ -1,4 +1,4 @@
-import socket
+import socket, re
 
 class Event:
     # Copied from http://www.valuedlessons.com/2008/04/events-in-python.html
@@ -26,6 +26,15 @@ class Event:
     __isub__ = unhandle
     __call__ = fire
 
+class Message:
+  # For incoming messages only
+
+  def __init__(self, line):
+    line = line.rstrip('\r\n')
+    pattern = '(:(?P<prefix>\S*) )?(?P<command>\S*)( (?P<params>.*?(:(?P<trailing>.*))?))?\Z'
+    m = re.match(pattern, line)
+    self.groupdict = m.groupdict()
+
 class Pirc:
 
   def __init__(self):
@@ -47,13 +56,17 @@ class Pirc:
 # All below this line is for debugging
 #
 
-def print_incoming_line(line):
-  print "  >>{0}".format(line.rstrip())
+def print_incoming_msg(msg):
+  print "  >>{0}".format(msg.rstrip())
   
+def parse_msg(msg):
+  print Message(msg).groupdict.__repr__()
+
 def print_event(msg):
   print "!!!! {0}".format(msg.rstrip())
 
 p = Pirc()
-p.received += (print_incoming_line)
+p.received += (print_incoming_msg)
+p.received += (parse_msg)
 p.closed += (print_event)
 p.connect('irc.whatnet.org', 6667)
