@@ -1,4 +1,4 @@
-import socket, re
+import socket, re, random
 
 class Event:
     # Copied from http://www.valuedlessons.com/2008/04/events-in-python.html
@@ -31,7 +31,7 @@ class Message:
 
   def __init__(self, line):
     line = line.rstrip('\r\n')
-    pattern = '(:(?P<prefix>\S*) )?(?P<command>\S*)( (?P<params>.*?(:(?P<trailing>.*))?))?\Z'
+    pattern = '(:(?P<prefix>\S*) )?(?P<command>\S*)( (?P<params>(?P<params_no_trailing>.*?)(:(?P<trailing>.*))?))?\Z'
     m = re.match(pattern, line)
     self.groupdict = m.groupdict()
 
@@ -40,10 +40,28 @@ class Pirc:
   def __init__(self):
     self.received = Event()
     self.closed = Event()
-    
+    self.received += self.catch_nick_taken
+    self.received += self.catch_ping
+
+  def writeline(self, s):
+    self.socketfile.write(s.rstrip('\r\n') + '\r\n')
+    self.socketfile.flush()
+  
+  def catch_nick_taken(self, msg):
+    message = Message(msg)
+    if message.groupdict['command'] == '433': #and state is negotiating connection
+      self.writeline('nick pirc{0}\r\n'.format(random.randrange(1000,9999))) #hack
+
+  def catch_ping(self, msg):
+    message = Message(msg)
+    if message.groupdict['command'] == 'PING':
+      self.writeline('pong :{0}\r\n'.format(message.groupdict['trailing']))
+
   def connect(self, host, port):
     self.socket = socket.create_connection((host, port))
     self.socketfile = self.socket.makefile()
+    self.writeline('user pirc 8 * :pirc\r\n') #hack
+    self.writeline('nick pi\r\n') #hack
     while True:
       line = self.socketfile.readline()
       if line == '':
