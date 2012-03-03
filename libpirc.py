@@ -1,4 +1,4 @@
-import socket, re, random
+import socket, re, random, Queue, threading, sys
 
 class Event:
     # Copied from http://www.valuedlessons.com/2008/04/events-in-python.html
@@ -51,11 +51,16 @@ class Pirc:
     self.received += self.catch_negotiations
     self.received += self.catch_ping
 
+    self.event_queue = Queue.PriorityQueue()
+
   def writeline(self, s):
-    # TODO: Should make an outgoing message queue that gets popped after
-    # every read iteration, so as not to send a message before all handlers
-    # for 'receive' have been called
     outline = s.rstrip('\r\n')
+    self.event_queue.put((0, outline))
+
+  def _writeline(self, outline):
+    # TODO: Determine if this should be after socket write/flush.
+    # It would work either way. However, if the socket.write() or flush()
+    # call raised an exception, the event gets fired only if it came first.
     self.sent.fire(outline)
     self.socketfile.write(outline + '\r\n')
     self.socketfile.flush()
@@ -64,30 +69,47 @@ class Pirc:
     message = Message(msg)
     cmd = message.command
 
-    if cmd == '433': #and state is negotiating connection
-      self.writeline('nick {0}{1}\r\n'.format(self.attempted_nick, random.randrange(1000,9999)))
+    if cmd == '433':
+      self.writeline('nick {0}{1}'.format(self.attempted_nick, random.randrange(1000,9999)))
     elif cmd == '001':
       self.received -= self.catch_negotiations
 
   def catch_ping(self, msg):
     message = Message(msg)
     if message.command == 'PING':
-      self.writeline('pong :{0}\r\n'.format(message.trailing))
+      self.writeline('pong :{0}'.format(message.trailing))
 
   def connect(self, host, port, nick):
     self.socket = socket.create_connection((host, port))
     self.socketfile = self.socket.makefile()
     self.attempted_nick = nick
 
-    self.writeline('user pirc 8 * :pirc\r\n') #hack
-    self.writeline('nick {0}\r\n'.format(self.attempted_nick))
+    self.writeline('user pirc 8 * :pirc') #hack
+    self.writeline('nick {0}'.format(self.attempted_nick))
+
+    self.read_thread = threading.Thread(target=self.read_loop_blocking)
+    self.read_thread.start()
+
+    while True:
+      (pri, obj) = self.event_queue.get(True)
+      if (pri, type(obj)) == (0, str):
+        self._writeline(obj)
+      elif (pri, type(obj)) == (1, tuple):
+        event = obj[0]
+        arg = obj[1]
+        event.fire(arg)
+      else:
+        raise Exception('connect loop popped an unidentified object from the queue')
+
+    
+  def read_loop_blocking(self):
     while True:
       line = self.socketfile.readline()
       if line == '':
-        self.closed.fire('Received EOF from remote')
+        self.event_queue.put((1, (self.closed, 'Received EOF from remote')))
         break
       else:
-        self.received.fire(line)
+        self.event_queue.put((1, (self.received, line)))
 
 #
 # All below this line is for debugging
@@ -111,4 +133,13 @@ p.sent += (print_outgoing_msg)
 p.received += (print_incoming_msg)
 #p.received += (parse_msg)
 p.closed += (print_event)
-p.connect('irc.whatnet.org', 6667, 'pi')
+t = threading.Thread(target=p.connect, args = ('irc.whatnet.org', 6667, 'pi'))
+t.start()
+
+while True:
+  try:
+    cmd = sys.stdin.readline()
+    p.writeline(cmd)
+  except KeyboardInterrupt:
+    print 'got interrupt, quitting forcefully'
+    exit()
