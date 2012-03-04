@@ -1,4 +1,4 @@
-import socket, re, random, Queue, threading, sys
+import socket, re, random, Queue, threading
 
 class Event:
     # Copied from http://www.valuedlessons.com/2008/04/events-in-python.html
@@ -42,7 +42,10 @@ class Message:
     self.params_no_trailing = m.group('params_no_trailing')
     self.trailing = m.group('trailing')
 
-class Pirc:
+class Numerics:
+  RPL_TOPIC = 332
+
+class Connection:
 
   def __init__(self):
     self.sent = Event()
@@ -70,22 +73,22 @@ class Pirc:
     cmd = message.command
 
     if cmd == '433':
-      self.writeline('nick {0}{1}'.format(self.attempted_nick, random.randrange(1000,9999)))
+      self.writeline('NICK {0}{1}'.format(self.attempted_nick, random.randrange(1000,9999)))
     elif cmd == '001':
       self.received -= self.catch_negotiations
 
   def catch_ping(self, msg):
     message = Message(msg)
     if message.command == 'PING':
-      self.writeline('pong :{0}'.format(message.trailing))
+      self.writeline('PONG :{0}'.format(message.trailing))
 
   def connect(self, host, port, nick):
     self.socket = socket.create_connection((host, port))
     self.socketfile = self.socket.makefile()
     self.attempted_nick = nick
 
-    self.writeline('user pirc 8 * :pirc') #hack
-    self.writeline('nick {0}'.format(self.attempted_nick))
+    self.writeline('USER pirc 8 * :pirc') #hack
+    self.writeline('NICK {0}'.format(self.attempted_nick))
 
     self.read_thread = threading.Thread(target=self.read_loop_blocking)
     self.read_thread.start()
@@ -100,7 +103,6 @@ class Pirc:
         event.fire(arg)
       else:
         raise Exception('connect loop popped an unidentified object from the queue')
-
     
   def read_loop_blocking(self):
     while True:
@@ -110,36 +112,3 @@ class Pirc:
         break
       else:
         self.event_queue.put((1, (self.received, line)))
-
-#
-# All below this line is for debugging
-#
-
-def print_outgoing_msg(msg):
-  print "<<   {0}".format(msg.rstrip())
-
-def print_incoming_msg(msg):
-  print "  >> {0}".format(msg.rstrip())
-  
-def parse_msg(msg):
-  print Message(msg).groupdict.__repr__()
-
-def print_event(msg):
-  print "!!!! {0}".format(msg.rstrip())
-
-p = Pirc()
-
-p.sent += (print_outgoing_msg)
-p.received += (print_incoming_msg)
-#p.received += (parse_msg)
-p.closed += (print_event)
-t = threading.Thread(target=p.connect, args = ('irc.whatnet.org', 6667, 'pi'))
-t.start()
-
-while True:
-  try:
-    cmd = sys.stdin.readline()
-    p.writeline(cmd)
-  except KeyboardInterrupt:
-    print 'got interrupt, quitting forcefully'
-    exit()
