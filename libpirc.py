@@ -1,31 +1,32 @@
 import socket, re, random, Queue, threading
 
 class Event:
-    # Copied from http://www.valuedlessons.com/2008/04/events-in-python.html
-    # and modified
+  # Copied from http://www.valuedlessons.com/2008/04/events-in-python.html
+  # and modified
   
-    def __init__(self):
-        self.handlers = set()
+  def __init__(self):
+    self.handlers = []
 
-    def handle(self, handler):
-        self.handlers.add(handler)
-        return self
+  def handle(self, handler):
+    if handler not in self.handlers:
+      self.handlers.append(handler)
+    return self
 
-    def unhandle(self, handler):
-        try:
-            self.handlers.remove(handler)
-        except:
-            raise ValueError("Handler is not handling this event, so cannot unhandle it.")
-        return self
+  def unhandle(self, handler):
+    try:
+      self.handlers.remove(handler)
+    except:
+      raise ValueError("Handler is not handling this event, so cannot unhandle it.")
+    return self
 
-    def fire(self, *args, **kargs):
-        # Work on a copy of handlers in case one of the handlers is modifying handlers list
-        for handler in self.handlers.copy():
-            handler(*args, **kargs)
+  def fire(self, *args, **kargs):
+    # Work on a copy of handlers in case one of the handlers is modifying handlers list
+    for handler in self.handlers[:]:
+      handler(*args, **kargs)
 
-    __iadd__ = handle
-    __isub__ = unhandle
-    __call__ = fire
+  __iadd__ = handle
+  __isub__ = unhandle
+  __call__ = fire
 
 class Message:
   # For incoming messages only
