@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # For debugging
 
 import libpirc, threading, sys
@@ -13,8 +14,6 @@ def parse_msg(msg):
 
 def print_event(msg):
   print "!!!! {0}".format(msg.rstrip())
-
-print libpirc.Numerics.RPL_TOPIC
 
 p = libpirc.Connection()
 
