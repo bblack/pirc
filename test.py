@@ -1,7 +1,8 @@
 #!/usr/bin/python
 # For debugging
 
-import libpirc, threading, sys
+import threading, sys
+from libpirc.connection import Connection
 
 def print_outgoing_msg(msg):
   print "<<   {0}".format(msg.rstrip())
@@ -15,7 +16,7 @@ def parse_msg(msg):
 def print_event(msg):
   print "!!!! {0}".format(msg.rstrip())
 
-p = libpirc.Connection()
+p = Connection()
 
 p.sent += (print_outgoing_msg)
 p.received += (print_incoming_msg)

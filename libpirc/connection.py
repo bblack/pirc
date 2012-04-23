@@ -1,74 +1,8 @@
-import socket, re, random, Queue, threading
-
-class Event:
-  # Copied from http://www.valuedlessons.com/2008/04/events-in-python.html
-  # and modified
-  
-  def __init__(self):
-    self.handlers = []
-
-  def handle(self, handler):
-    if handler not in self.handlers:
-      self.handlers.append(handler)
-    return self
-
-  def unhandle(self, handler):
-    try:
-      self.handlers.remove(handler)
-    except:
-      raise ValueError("Handler is not handling this event, so cannot unhandle it.")
-    return self
-
-  def fire(self, *args, **kargs):
-    # Work on a copy of handlers in case one of the handlers is modifying handlers list
-    for handler in self.handlers[:]:
-      handler(*args, **kargs)
-
-  __iadd__ = handle
-  __isub__ = unhandle
-  __call__ = fire
-
-class Message:
-  # For incoming messages only
-
-  def __init__(self, line):
-    line = line.rstrip('\r\n')
-    pattern = '(:(?P<prefix>\S*) )?(?P<command>\S*)( (?P<params>(?P<params_no_trailing>.*?)(:(?P<trailing>.*))?))?\Z'
-    m = re.match(pattern, line)
-    self.groupdict = m.groupdict()
-    
-    self.prefix = m.group('prefix')
-    self.command = m.group('command')
-    self.params = m.group('params')
-    self.params_no_trailing = m.group('params_no_trailing').strip().split(' ')
-    self.trailing = m.group('trailing')
-
-class Channel:
-  def __init__(self, connection, name):
-    self.connection = connection
-    self.name = name
-    self.getting_names = False
-    self.nicks = set()
-
-    self.connection.received += self.catch_channel_shit
-
-  def catch_channel_shit(self, msg):
-    message = Message(msg)
-    if message.params_no_trailing[-1].lower() == self.name:
-      if message.command == Nums.RPL_NAMREPLY:
-        if not self.getting_names:
-          self.getting_names = True
-          self.nicks = set()
-        for nick in message.trailing.split(' '):
-          self.nicks.add(nick)
-      elif message.command == Nums.RPL_ENDOFNAMES:
-        self.getting_names = False
-        print 'synced to {0}: {1}'.format(self.name, ' '.join(self.nicks))
-
-class Nums:
-  RPL_TOPIC = '332'
-  RPL_NAMREPLY = '353'
-  RPL_ENDOFNAMES = '366'
+import Queue, socket, random, threading
+from event import Event
+from message import Message
+from nums import Nums
+from channel import Channel
 
 class Connection:
 

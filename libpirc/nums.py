@@ -1,0 +1,4 @@
+class Nums:
+  RPL_TOPIC = '332'
+  RPL_NAMREPLY = '353'
+  RPL_ENDOFNAMES = '366'
