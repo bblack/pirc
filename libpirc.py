@@ -45,7 +45,6 @@ class Message:
 
 class Channel:
   def __init__(self, connection, name):
-    print 'initing channel ' + name
     self.connection = connection
     self.name = name
     self.getting_names = False
@@ -64,7 +63,7 @@ class Channel:
           self.nicks.add(nick)
       elif message.command == Nums.RPL_ENDOFNAMES:
         self.getting_names = False
-        print '*** synced to {0}: {1}'.format(self.name, self.nicks)
+        print 'synced to {0}: {1}'.format(self.name, ' '.join(self.nicks))
 
 class Nums:
   RPL_TOPIC = '332'
@@ -108,7 +107,6 @@ class Connection:
     if c != None:
       return c
     else:
-      print 'makin channel ' + name
       c = Channel(self, name)
       self.channels.add(c)
       return c
