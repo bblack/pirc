@@ -28,7 +28,11 @@ t.start()
 while True:
   try:
     cmd = sys.stdin.readline()
-    p.writeline(cmd)
+    if cmd.strip() == 'nicks':
+      for chan in p.channels:
+        print chan.name + ' -- ' + ','.join(chan.nicks)
+    else:
+      p.writeline(cmd)
   except KeyboardInterrupt:
     print '' #since some terms show ^C on interrupt
     print 'got interrupt, quitting forcefully'
