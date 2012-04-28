@@ -16,12 +16,16 @@ def parse_msg(msg):
 def print_event(msg):
   print "!!!! {0}".format(msg.rstrip())
 
+def chan_msg_rcvd((channel, user, msg_text)):
+  print "{0}: <{1}> {2}".format(channel.name, user.nick, msg_text)
+
 p = Connection()
 
 p.sent += (print_outgoing_msg)
 p.received += (print_incoming_msg)
 #p.received += (parse_msg)
 p.closed += (print_event)
+p.channel_msg_received += (chan_msg_rcvd)
 t = threading.Thread(target=p.connect, args = ('irc.whatnet.org', 6667, 'pi'))
 t.start()
 

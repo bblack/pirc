@@ -2,6 +2,7 @@ from nums import Nums
 from message import Message
 from user import User
 from event import Event
+import Queue
 
 class Channel:
   def __init__(self, connection, name):
@@ -12,11 +13,20 @@ class Channel:
 
     self.nick_added = Event()
     self.nick_removed = Event()
+    self.msg_received = Event()
 
     self.connection.received += self.catch_channel_shit
     self.connection.received += self.catch_joins
     self.connection.received += self.catch_parts
     self.connection.received += self.catch_kicks
+    self.connection.received += self.catch_privmsgs
+
+  def catch_privmsgs(self, msg):
+    message = Message(msg)
+    if message.command == "PRIVMSG" and message.params_no_trailing[0].lower() == self.name.lower():
+      user = User.parse(message.prefix)
+      msg_text = message.trailing
+      self.msg_received.fire(self, user, msg_text)
 
   def catch_kicks(self, msg):
     message = Message(msg)

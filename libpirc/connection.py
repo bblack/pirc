@@ -11,6 +11,8 @@ class Connection:
     self.received = Event()
     self._receiving = Event()
     self.closed = Event()
+    self.channel_msg_received = Event()
+
     self.received += self.catch_negotiations
     self.received += self.catch_ping
     self._receiving += self.catch_channel_shit
@@ -32,6 +34,9 @@ class Connection:
     if message.command in (Nums.RPL_NAMREPLY, "JOIN"):
       self.get_or_make_channel(message.params_no_trailing[-1])
 
+  def catch_channel_msg_received(self, channel, user, msg_text):
+    self.queue_event(self.channel_msg_received, (channel, user, msg_text))
+
   def get_or_make_channel(self, name):
     c = None
     for i in self.channels:
@@ -43,6 +48,7 @@ class Connection:
     else:
       c = Channel(self, name)
       self.channels.add(c)
+      c.msg_received += self.catch_channel_msg_received
       return c
 
   def writeline(self, s):
