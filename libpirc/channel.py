@@ -13,13 +13,32 @@ class Channel:
 
     self.nick_added = Event()
     self.nick_removed = Event()
+    self.nick_changed = Event()
     self.msg_received = Event()
+    self.someone_kicked = Event() # Someone, anyone, was kicked from the channel
+    self.left = Event() # The pirc user is no longer in the channel
 
     self.connection.received += self.catch_channel_shit
     self.connection.received += self.catch_joins
     self.connection.received += self.catch_parts
     self.connection.received += self.catch_kicks
     self.connection.received += self.catch_privmsgs
+    self.connection.closed += self.catch_connection_closed
+
+    self.connection.nick_changed += self.catch_nick_changed
+
+  def _leave(self):
+    for nick in self.nicks:
+      self._remove_nick(nick)
+
+  def catch_connection_closed(self, msg):
+    self._leave()
+
+  def catch_nick_changed(self, (old_nick, new_nick)):
+    if old_nick in self.nicks:
+      self.nicks.remove(old_nick)
+      self.nicks.add(new_nick)
+      self.nick_changed.fire(self, old_nick, new_nick)
 
   def catch_privmsgs(self, msg):
     message = Message(msg)
@@ -31,8 +50,12 @@ class Channel:
   def catch_kicks(self, msg):
     message = Message(msg)
     if message.command == "KICK" and message.params_no_trailing[0].lower() == self.name.lower():
-      self._remove_nick(User.parse(message.params_no_trailing[1]).nick)
-      # TODO: Handle case where kickee is me
+      kicker = User.parse(message.prefix)
+      kickee = User.parse(message.params_no_trailing[1])
+      self.kicked.fire(kickee, kicker)
+      self._remove_nick(kickee.nick)
+      if kickee.nick == self.connection.nick:
+        self._leave()
 
   def catch_parts(self, msg):
     message = Message(msg)
@@ -59,8 +82,8 @@ class Channel:
 
   def _add_nick(self, nick):
     self.nicks.add(nick)
-    self.nick_added.fire(nick)
+    self.nick_added.fire(self, nick)
 
   def _remove_nick(self, nick):
     self.nicks.remove(nick)
-    self.nick_removed.fire(nick)
+    self.nick_removed.fire(self, nick)

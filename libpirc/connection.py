@@ -3,6 +3,7 @@ from event import Event
 from message import Message
 from nums import Nums
 from channel import Channel
+from user import User
 
 class Connection:
 
@@ -12,10 +13,12 @@ class Connection:
     self._receiving = Event()
     self.closed = Event()
     self.channel_msg_received = Event()
+    self.nick_changed = Event()
 
     self.received += self.catch_negotiations
     self.received += self.catch_ping
     self._receiving += self.catch_channel_shit
+    self.received += self.catch_nick
 
     self.event_queue = Queue.PriorityQueue()
     self.event_queue_ticker = 0
@@ -28,6 +31,18 @@ class Connection:
 
   def queue_event(self, event, arg):
     self.event_queue.put((1, self.next_event_queue_ticker(), (event, arg)))
+
+  def catch_nick(self, msg):
+    message = Message(msg)
+    if message.command == "NICK":
+      old_nick = User.parse(message.prefix).nick
+      # Seems that a NICK message received has the new nick after the colon if successful;
+      # no colon if e.g. name change was attempted too quickly.
+      new_nick = message.trailing or message.params_no_trailing[0]
+      if old_nick == self.nick:
+        self.nick = new_nick
+        print 'Successfully changed nick to ' + self.nick
+      self.queue_event(self.nick_changed, (old_nick, new_nick))
 
   def catch_channel_shit(self, msg):
     message = Message(msg)
@@ -70,6 +85,7 @@ class Connection:
     if cmd == '433':
       self.writeline('NICK {0}{1}'.format(self.attempted_nick, random.randrange(1000,9999)))
     elif cmd == '001':
+      self.nick = message.params_no_trailing[0]
       self.received -= self.catch_negotiations
 
   def catch_ping(self, msg):
