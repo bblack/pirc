@@ -11,6 +11,7 @@ class ChatWidget(gtk.VBox):
 
         self.log_and_nicks_box = gtk.HPaned()
         self.logbox = gtk.TextView()
+        self.logbox.set_editable(False)
         self.logbox.show()
         self.nickbox = gtk.TreeView()
         self.nickbox.show()
@@ -23,6 +24,18 @@ class ChatWidget(gtk.VBox):
 
         self.pack_start(self.log_and_nicks_box)
         self.pack_start(self.entry, False)
+
+class ServerWidget(ChatWidget):
+    def __init__(self, connection):
+        super(ServerWidget, self).__init__()
+        self.connection = connection
+        # and also subscribe to connection's events here!
+
+class ChannelWidget(ChatWidget):
+    def __init__(self, channel):
+        super(ChannelWidget, self).__init__()
+        self.channel = channel
+        # and also subscribe to channel's events here!
 
 class PircGtk:
 
