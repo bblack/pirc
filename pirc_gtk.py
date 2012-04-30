@@ -87,9 +87,14 @@ class PircGtk:
         self.window.set_border_width(10)
         self.window.set_default_size(640, 480)
 
+        self.notebook = gtk.Notebook()
+        self.notebook.show()
+        self.window.add(self.notebook)
+
         self.chat_widget = ServerWidget(self.connection)
         self.chat_widget.show()
-        self.window.add(self.chat_widget)
+        self.notebook.append_page(self.chat_widget, gtk.Label('a server'))
+        
         self.window.show()
 
     def main(self):
@@ -101,9 +106,10 @@ if __name__ == "__main__":
     conn = Connection()
 
     test = Test(conn)
+    pirc_gtk = PircGtk(conn)
+    
     conn.connect('irc.whatnet.org', 6667, 'pi')
 
-    pirc_gtk = PircGtk(conn)
     pirc_gtk.main()
 
 
