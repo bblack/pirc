@@ -8,6 +8,7 @@ from user import User
 class Connection:
 
   def __init__(self):
+    self.connected = Event()
     self.sent = Event()
     self.received = Event()
     self._receiving = Event()
@@ -15,6 +16,7 @@ class Connection:
     self.channel_msg_received = Event()
     self.nick_changed = Event()
 
+    self.connected += self.catch_connected
     self.received += self.catch_negotiations
     self.received += self.catch_ping
     self._receiving += self.catch_channel_shit
@@ -24,13 +26,19 @@ class Connection:
     self.event_queue_ticker = 0
 
     self.channels = set()
+    self.is_connected = False
 
   def next_event_queue_ticker(self):
     self.event_queue_ticker += 1
     return self.event_queue_ticker
 
-  def queue_event(self, event, arg):
-    self.event_queue.put((1, self.next_event_queue_ticker(), (event, arg)))
+  def queue_event(self, event, arg=None):
+    self.event_queue.put_nowait((1, self.next_event_queue_ticker(), (event, arg)))
+
+  def catch_connected(self, dummy):
+    # HACK: dummy should be None until event queue popper is fixed
+    # to use **kargs
+    self.is_connected = True
 
   def catch_nick(self, msg):
     message = Message(msg)
@@ -96,6 +104,7 @@ class Connection:
   def connect(self, host, port, nick):
     self.socket = socket.create_connection((host, port))
     self.socketfile = self.socket.makefile()
+    self.queue_event(self.connected)
     self.attempted_nick = nick
 
     self.writeline('USER pirc 8 * :pirc') #hack
@@ -104,6 +113,11 @@ class Connection:
     self.read_thread = threading.Thread(target=self.read_loop_blocking)
     self.read_thread.start()
 
+    self.event_thread = threading.Thread(target=self.event_loop_blocking)
+    self.event_thread.start()
+
+
+  def event_loop_blocking(self):
     while True:
       (pri, ticker_id, obj) = self.event_queue.get(True)
       if (pri, type(obj)) == (0, str):
@@ -112,6 +126,7 @@ class Connection:
         event = obj[0]
         arg = obj[1]
         event.fire(arg)
+        # TODO: splat arg and change handlers thusly
       else:
         raise Exception('connect loop popped an unidentified object from the queue.')
     

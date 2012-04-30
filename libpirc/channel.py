@@ -28,7 +28,7 @@ class Channel:
     self.connection.nick_changed += self.catch_nick_changed
 
   def _leave(self):
-    for nick in self.nicks:
+    for nick in self.nicks.copy():
       self._remove_nick(nick)
 
   def catch_connection_closed(self, msg):
