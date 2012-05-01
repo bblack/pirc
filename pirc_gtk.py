@@ -5,6 +5,7 @@ pygtk.require('2.0')
 import gtk
 import gobject
 from libpirc.connection import Connection
+from libpirc.world import World
 from test import Test
 
 class ChatWidget(gtk.VBox):
@@ -76,10 +77,20 @@ class PircGtk:
 
     def destroy(self, widget, data=None):
         print "destroy signal occurred"
+        self.world.shut_it_down()
         gtk.main_quit()
 
-    def __init__(self, connection):
-        self.connection = connection
+    def handle_connection_added(self, world, new_connection):
+        gobject.idle_add(self.make_server_tab, new_connection)
+
+    def make_server_tab(self, connection):
+        self.chat_widget = ServerWidget(connection)
+        self.chat_widget.show()
+        self.notebook.append_page(self.chat_widget, gtk.Label('a server'))
+
+    def __init__(self, world):
+        self.world = world
+        self.world.connection_added += self.handle_connection_added
 
         self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
         self.window.connect("delete_event", self.delete_event)
@@ -90,10 +101,6 @@ class PircGtk:
         self.notebook = gtk.Notebook()
         self.notebook.show()
         self.window.add(self.notebook)
-
-        self.chat_widget = ServerWidget(self.connection)
-        self.chat_widget.show()
-        self.notebook.append_page(self.chat_widget, gtk.Label('a server'))
         
         self.window.show()
 
@@ -103,14 +110,17 @@ class PircGtk:
 
 
 if __name__ == "__main__":
-    conn = Connection()
+    world = World()
+    pirc_gtk = PircGtk(world)
 
-    test = Test(conn)
-    pirc_gtk = PircGtk(conn)
-    
+    conn = world.new_connection()
     conn.connect('irc.whatnet.org', 6667, 'pi')
 
-    pirc_gtk.main()
+    try:
+        pirc_gtk.main()
+    except KeyboardInterrupt:
+        pirc_gtk.world.shut_it_down()
+        raise
 
 
 

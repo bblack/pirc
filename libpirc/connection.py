@@ -116,6 +116,11 @@ class Connection:
     self.event_thread = threading.Thread(target=self.event_loop_blocking)
     self.event_thread.start()
 
+  def shut_it_down(self):
+    self.socket.shutdown(socket.SHUT_RDWR)
+    self.socket.close()
+    self.socketfile.close()
+    self.event_queue.put((-1, None, None))
 
   def event_loop_blocking(self):
     while True:
@@ -127,6 +132,8 @@ class Connection:
         arg = obj[1]
         event.fire(arg)
         # TODO: splat arg and change handlers thusly
+      elif pri == -1:
+        break
       else:
         raise Exception('connect loop popped an unidentified object from the queue.')
     
