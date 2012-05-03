@@ -104,6 +104,7 @@ class Connection:
       self.writeline('PONG :{0}'.format(message.trailing))
 
   def connect(self, host, port, nick):
+    self.name = host
     self.socket = socket.create_connection((host, port))
     self.socketfile = self.socket.makefile()
     self.queue_event(self.connected)

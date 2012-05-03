@@ -64,6 +64,14 @@ class ChannelWidget(ChatWidget):
         super(ChannelWidget, self).__init__()
         self.channel = channel
         # and also subscribe to channel's events here!
+        self.channel.msg_received += self.handle_msg_received
+        # #self.channel.nick_added += handle_nick_added
+        # #self.channel.nick_removed += handle_nick_removed
+        # self.channel.nick_changed += self.handle_nick_changed
+        # self.channel.someone_kicked += self.handle_someone_kicked
+        # self.channel.someone_joined += self.handle_someone_joined
+        # self.channel.someone_parted += self.handle_someone_parted
+        # self.channel.someone_quit += self.handle_someone_quit
 
         self.log_and_nicks_box = gtk.HPaned()
         self.log_and_nicks_box.add1(self.logscrollbox)
@@ -73,6 +81,11 @@ class ChannelWidget(ChatWidget):
 
         self.pack_start(self.log_and_nicks_box)
         self.pack_start(self.entry, False)
+
+    def handle_msg_received(self, channel, user, msg_text):
+        gobject.idle_add(self._writeline, '<{0}> {1}'.format(user.nick, msg_text))
+
+
 
 class PircGtk:
 

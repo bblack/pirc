@@ -16,6 +16,9 @@ class Channel:
     self.nick_changed = Event()
     self.msg_received = Event()
     self.someone_kicked = Event() # Someone, anyone, was kicked from the channel
+    self.someone_joined = Event()
+    self.someone_parted = Event()
+    self.someone_quit = Event()
     self.left = Event() # The pirc user is no longer in the channel
 
     self.connection.received += self.catch_channel_shit
