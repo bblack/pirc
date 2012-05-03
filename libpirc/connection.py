@@ -13,6 +13,7 @@ class Connection:
     self.received = Event()
     self._receiving = Event()
     self.closed = Event()
+    self.channel_opened = Event()
     self.channel_msg_received = Event()
     self.nick_changed = Event()
 
@@ -71,6 +72,7 @@ class Connection:
     else:
       c = Channel(self, name)
       self.channels.add(c)
+      self.queue_event(self.channel_opened, c)
       c.msg_received += self.catch_channel_msg_received
       return c
 
@@ -117,10 +119,11 @@ class Connection:
     self.event_thread.start()
 
   def shut_it_down(self):
-    self.socket.shutdown(socket.SHUT_RDWR)
-    self.socket.close()
-    self.socketfile.close()
-    self.event_queue.put((-1, None, None))
+    if self.is_connected:
+      self.socket.shutdown(socket.SHUT_RDWR)
+      self.socket.close()
+      self.socketfile.close()
+      self.event_queue.put((-1, None, None))
 
   def event_loop_blocking(self):
     while True:

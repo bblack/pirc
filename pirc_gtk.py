@@ -46,7 +46,12 @@ class ServerWidget(ChatWidget):
         self.pack_start(self.entry, False)
 
     def handle_text_entered(self, widget, data=None):
-        self.connection.writeline(self.entry.get_text())
+        words = self.entry.get_text().split(' ')
+        if words[0] == '/server':
+            self.connection.connect(words[1], 6667, 'pi') #hack
+        else:
+            self.connection.writeline(self.entry.get_text())
+        self.entry.set_text('')
 
     def handle_received(self, msg):
         gobject.idle_add(self._writeline, ('  >> ' + msg))
@@ -83,14 +88,23 @@ class PircGtk:
     def handle_connection_added(self, world, new_connection):
         gobject.idle_add(self.make_server_tab, new_connection)
 
+    def handle_channel_opened(self, world, new_channel):
+        gobject.idle_add(self.make_channel_tab, new_channel)
+
+    def make_channel_tab(self, channel):
+        channel_widget = ChannelWidget(channel)
+        channel_widget.show()
+        self.notebook.append_page(channel_widget, gtk.Label(channel.name)) #TODO: insert it immediately after the right server tab
+
     def make_server_tab(self, connection):
-        self.chat_widget = ServerWidget(connection)
-        self.chat_widget.show()
-        self.notebook.append_page(self.chat_widget, gtk.Label('a server'))
+        chat_widget = ServerWidget(connection)
+        chat_widget.show()
+        self.notebook.append_page(chat_widget, gtk.Label('a server'))
 
     def __init__(self, world):
         self.world = world
         self.world.connection_added += self.handle_connection_added
+        self.world.channel_opened += self.handle_channel_opened
 
         self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
         self.window.connect("delete_event", self.delete_event)
@@ -114,7 +128,6 @@ if __name__ == "__main__":
     pirc_gtk = PircGtk(world)
 
     conn = world.new_connection()
-    conn.connect('irc.whatnet.org', 6667, 'pi')
 
     try:
         pirc_gtk.main()
