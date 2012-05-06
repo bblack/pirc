@@ -15,9 +15,12 @@ class ChatWidget(gtk.VBox):
 
         self.logbox = gtk.TextView()
         self.logbox.set_editable(False)
+        self.logbox.set_cursor_visible(False)
+        self.logbox.set_wrap_mode(gtk.WRAP_WORD)
         self.logbox.show()
         self.logscrollbox = gtk.ScrolledWindow()
-        self.logscrollbox.add_with_viewport(self.logbox)
+        self.logscrollbox.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
+        self.logscrollbox.add(self.logbox)
         self.logscrollbox.show()
 
         self.nickbox = gtk.TreeView(gtk.ListStore(gobject.TYPE_STRING))
@@ -34,10 +37,18 @@ class ChatWidget(gtk.VBox):
         self.entry.show()
 
     def _writeline(self, str):
+        vadj = self.logscrollbox.get_vadjustment()
+        print 'vadj upper/lower/page_size/value is {0}/{1}/{2}/{3}'.format(vadj.upper,vadj.lower,vadj.page_size,vadj.value)
+        scrollbar_was_at_bottom = (vadj.value + vadj.page_size == vadj.upper)
+        print scrollbar_was_at_bottom
+
         str = str.rstrip('\r\n')
         buf = self.logbox.get_buffer()
         iter = buf.get_end_iter()
         buf.insert(iter, str + '\r\n')
+
+        if scrollbar_was_at_bottom:
+             vadj.set_value(vadj.upper)
 
 class ServerWidget(ChatWidget):
     def __init__(self, connection):
@@ -74,7 +85,7 @@ class ChannelWidget(ChatWidget):
         self.channel.msg_received += self.handle_msg_received
         self.channel.nick_added += self.handle_nick_added
         self.channel.nick_removed += self.handle_nick_removed
-        # self.channel.nick_changed += self.handle_nick_changed
+        self.channel.nick_changed += self.handle_nick_changed
         # self.channel.someone_kicked += self.handle_someone_kicked
         # self.channel.someone_joined += self.handle_someone_joined
         # self.channel.someone_parted += self.handle_someone_parted
@@ -110,23 +121,35 @@ class ChannelWidget(ChatWidget):
         finally:
             gtk.gdk.threads_leave()
 
+    def handle_nick_changed(self, channel, old_nick, new_nick):
+        gtk.gdk.threads_enter()
+        try:
+            self._change_nick_in_nickbox(old_nick, new_nick)
+            self._writeline('{0} is now known as {1}'.format(old_nick, new_nick))
+        finally:
+            gtk.gdk.threads_leave()
+
     def _add_nick_to_nickbox(self, nick):
         print 'adding nick to box'
         self.nickbox.get_model().append([nick])
         print 'added nick to box'
 
     def _remove_nick_from_nickbox(self, nick):
-        def iter_matches_nick(model, path, iter, (matching_iters, nick_sought)):
-            nick = self.nickbox.get_model().get_value(iter, 0)
-            if nick == nick_sought:
-                print 'found matching nick'
-                matching_iters.append(iter)
-            return False
-
         matching_iters = []
-        self.nickbox.get_model().foreach(iter_matches_nick, (matching_iters, nick))
+        self.nickbox.get_model().foreach(self.iter_matches_nick, (matching_iters, nick))
         self.nickbox.get_model().remove(matching_iters[0])
 
+    def _change_nick_in_nickbox(self, old_nick, new_nick):
+        matching_iters = []
+        self.nickbox.get_model().foreach(self.iter_matches_nick, (matching_iters, old_nick))
+        self.nickbox.get_model().set(matching_iters[0], 0, new_nick)
+
+    def iter_matches_nick(self, model, path, iter, (matching_iters, nick_sought)):
+        nick = self.nickbox.get_model().get_value(iter, 0)
+        if nick == nick_sought:
+            print 'found matching nick'
+            matching_iters.append(iter)
+        return False
 
 
 
