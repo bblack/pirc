@@ -33,6 +33,7 @@ class Channel:
   def _leave(self):
     for nick in self.nicks.copy():
       self._remove_nick(nick)
+    self.left.fire(self)
 
   def catch_connection_closed(self, msg):
     self._leave()
@@ -55,7 +56,7 @@ class Channel:
     if message.command == "KICK" and message.params_no_trailing[0].lower() == self.name.lower():
       kicker = User.parse(message.prefix)
       kickee = User.parse(message.params_no_trailing[1])
-      self.kicked.fire(kickee, kicker)
+      self.someone_kicked.fire(kickee, kicker)
       self._remove_nick(kickee.nick)
       if kickee.nick == self.connection.nick:
         self._leave()
@@ -76,7 +77,8 @@ class Channel:
       if message.command == Nums.RPL_NAMREPLY:
         if not self.getting_names:
           self.getting_names = True
-          self.nicks = set()
+          for nick in self.nicks.copy():
+            self._remove_nick(nick)
         for nick in message.trailing.split(' '):
           self._add_nick(nick.lstrip('@+%&')) # hack
       elif message.command == Nums.RPL_ENDOFNAMES:
@@ -84,6 +86,7 @@ class Channel:
         print 'synced to {0}: {1}'.format(self.name, ' '.join(self.nicks))
 
   def _add_nick(self, nick):
+    print '_add_nick({0}) called'.format(nick) 
     self.nicks.add(nick)
     self.nick_added.fire(self, nick)
 

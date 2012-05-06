@@ -14,7 +14,6 @@ class Connection:
     self._receiving = Event()
     self.closed = Event()
     self.channel_opened = Event()
-    self.channel_msg_received = Event()
     self.nick_changed = Event()
 
     self.connected += self.catch_connected
@@ -23,7 +22,7 @@ class Connection:
     self._receiving += self.catch_channel_shit
     self.received += self.catch_nick
 
-    self.event_queue = Queue.PriorityQueue()
+    self.event_queue = Queue.PriorityQueue() # only for shit directly related to socket I/O
     self.event_queue_ticker = 0
 
     self.channels = set()
@@ -51,15 +50,12 @@ class Connection:
       if old_nick == self.nick:
         self.nick = new_nick
         print 'Successfully changed nick to ' + self.nick
-      self.queue_event(self.nick_changed, (old_nick, new_nick))
+      self.nick_changed.fire((old_nick, new_nick))
 
   def catch_channel_shit(self, msg):
     message = Message(msg)
     if message.command in (Nums.RPL_NAMREPLY, "JOIN"):
       self.get_or_make_channel(message.params_no_trailing[-1])
-
-  def catch_channel_msg_received(self, channel, user, msg_text):
-    self.queue_event(self.channel_msg_received, (channel, user, msg_text))
 
   def get_or_make_channel(self, name):
     c = None
@@ -70,10 +66,10 @@ class Connection:
     if c != None:
       return c
     else:
+      print 'making channel ' + name
       c = Channel(self, name)
       self.channels.add(c)
-      self.queue_event(self.channel_opened, c)
-      c.msg_received += self.catch_channel_msg_received
+      self.channel_opened.fire(c)
       return c
 
   def writeline(self, s):

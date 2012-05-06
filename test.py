@@ -27,7 +27,6 @@ class Test:
     p.received += self.print_incoming_msg
     #p.received += self.parse_msg
     p.closed += self.print_event
-    p.channel_msg_received += self.chan_msg_rcvd
     t = threading.Thread(target=self.test_loop)
     t.start()
 

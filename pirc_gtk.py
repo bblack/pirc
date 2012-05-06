@@ -20,8 +20,15 @@ class ChatWidget(gtk.VBox):
         self.logscrollbox.add_with_viewport(self.logbox)
         self.logscrollbox.show()
 
-        self.nickbox = gtk.TreeView()
-        self.nickbox.show()
+        self.nickbox = gtk.TreeView(gtk.ListStore(gobject.TYPE_STRING))
+        self.nickbox.set_headers_visible(False)
+        nick_col = gtk.TreeViewColumn('Nick')
+        # TODO: figure out what the shit is going on here
+        cell_renderer = gtk.CellRendererText()
+        nick_col.pack_start(cell_renderer)
+        nick_col.set_attributes(cell_renderer, text=0)
+        self.nickbox.append_column(nick_col)
+        self.nickbox.show_all()
 
         self.entry = gtk.Entry()
         self.entry.show()
@@ -65,8 +72,8 @@ class ChannelWidget(ChatWidget):
         self.channel = channel
         # and also subscribe to channel's events here!
         self.channel.msg_received += self.handle_msg_received
-        # #self.channel.nick_added += handle_nick_added
-        # #self.channel.nick_removed += handle_nick_removed
+        self.channel.nick_added += self.handle_nick_added
+        self.channel.nick_removed += self.handle_nick_removed
         # self.channel.nick_changed += self.handle_nick_changed
         # self.channel.someone_kicked += self.handle_someone_kicked
         # self.channel.someone_joined += self.handle_someone_joined
@@ -83,7 +90,44 @@ class ChannelWidget(ChatWidget):
         self.pack_start(self.entry, False)
 
     def handle_msg_received(self, channel, user, msg_text):
-        gobject.idle_add(self._writeline, '<{0}> {1}'.format(user.nick, msg_text))
+        gtk.gdk.threads_enter()
+        try:
+            self._writeline('<{0}> {1}'.format(user.nick, msg_text))
+        finally:
+            gtk.gdk.threads_leave()
+
+    def handle_nick_added(self, channel, nick):
+        gtk.gdk.threads_enter()
+        try:
+            self._add_nick_to_nickbox(nick)
+        finally:
+            gtk.gdk.threads_leave()
+
+    def handle_nick_removed(self, channel, nick):
+        gtk.gdk.threads_enter()
+        try:
+            self._remove_nick_from_nickbox(nick)
+        finally:
+            gtk.gdk.threads_leave()
+
+    def _add_nick_to_nickbox(self, nick):
+        print 'adding nick to box'
+        self.nickbox.get_model().append([nick])
+        print 'added nick to box'
+
+    def _remove_nick_from_nickbox(self, nick):
+        def iter_matches_nick(model, path, iter, (matching_iters, nick_sought)):
+            nick = self.nickbox.get_model().get_value(iter, 0)
+            if nick == nick_sought:
+                print 'found matching nick'
+                matching_iters.append(iter)
+            return False
+
+        matching_iters = []
+        self.nickbox.get_model().foreach(iter_matches_nick, (matching_iters, nick))
+        self.nickbox.get_model().remove(matching_iters[0])
+
+
 
 
 
@@ -102,12 +146,22 @@ class PircGtk:
         gobject.idle_add(self.make_server_tab, new_connection)
 
     def handle_channel_opened(self, world, new_channel):
-        gobject.idle_add(self.make_channel_tab, new_channel)
+        #print 'handling channel opened by idle_adding make_channel_tab'
+        #gobject.idle_add(self.make_channel_tab, new_channel)
+
+        gtk.gdk.threads_enter()
+        try:
+            self.make_channel_tab(new_channel)
+        finally:
+            gtk.gdk.threads_leave()
+
 
     def make_channel_tab(self, channel):
         channel_widget = ChannelWidget(channel)
         channel_widget.show()
-        self.notebook.append_page(channel_widget, gtk.Label(channel.name)) #TODO: insert it immediately after the right server tab
+        self.notebook.append_page(channel_widget, gtk.Label(channel.name))
+        #TODO: insert it immediately after the right server tab
+        self.notebook.set_current_page(self.notebook.page_num(channel_widget))
 
     def make_server_tab(self, connection):
         chat_widget = ServerWidget(connection)
@@ -141,6 +195,7 @@ if __name__ == "__main__":
     pirc_gtk = PircGtk(world)
 
     conn = world.new_connection()
+    conn.connect('irc.whatnet.org', 6667, 'pi')
 
     try:
         pirc_gtk.main()
