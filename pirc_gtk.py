@@ -39,7 +39,7 @@ class ChatWidget(gtk.VBox):
     def _writeline(self, str):
         vadj = self.logscrollbox.get_vadjustment()
         print 'vadj upper/lower/page_size/value is {0}/{1}/{2}/{3}'.format(vadj.upper,vadj.lower,vadj.page_size,vadj.value)
-        scrollbar_was_at_bottom = (vadj.value + vadj.page_size == vadj.upper)
+        scrollbar_was_at_bottom = (vadj.value + vadj.page_size >= vadj.upper)
         print scrollbar_was_at_bottom
 
         str = str.rstrip('\r\n')
